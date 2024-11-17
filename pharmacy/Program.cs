@@ -4,7 +4,7 @@ using pharmacy.models;
 using pharmacy;
 using System.ComponentModel.Design;
 bool menu = true;
-Initializer.Init(); // на случай если надо сбросить дб
+//Initializer.Init(); // uncomment to reset database to default values
 while (menu) {
     Console.WriteLine("-----:Меню:-----");
     Console.WriteLine("+ Добавление лекарства");
