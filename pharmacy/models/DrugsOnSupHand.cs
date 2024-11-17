@@ -13,6 +13,8 @@ public partial class DrugsOnSupHand
 
     public int? Prior { get; set; }
 
+    public int? Filling { get; set; }
+
     public int? Amount { get; set; }
 
     public virtual Supplier? Supplier { get; set; }
