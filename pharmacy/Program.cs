@@ -2,12 +2,14 @@
 using pharmacy.DbContextPhar;
 using pharmacy.models;
 using pharmacy;
+using System.ComponentModel.Design;
 bool menu = true;
-//Initializer.Init(); // на случай если надо сбросить дб
+Initializer.Init(); // на случай если надо сбросить дб
 while (menu) {
     Console.WriteLine("-----:Меню:-----");
     Console.WriteLine("+ Добавление лекарства");
     Console.WriteLine("- Удаление лекарства");
+    Console.WriteLine("= (Директор) закуп недостающих и спсание просроченных ");
     Console.WriteLine("1. Сведения об аптеке");
     Console.WriteLine("2. Сведения об лекарствах");
     Console.WriteLine("3. Сведения об поставщиках");
@@ -198,34 +200,56 @@ while (menu) {
                 var price = Convert.ToDecimal(Console.ReadLine());
                 Console.WriteLine("Введите название поставщика: ");
                 var supplier = Console.ReadLine();
-                using (var context = new PharmacyDataBaseContext()) {
-                    var drugz = context.DrugsOnSupHands.AsNoTracking().Where(name => name.DrugName == drugs).OrderBy(prior => prior).ToList();
-                    var drugzpar = context.DrugsOnParHands.AsNoTracking().FirstOrDefault(name => name.DrugName == drugs);
-                    var pharmacyid = context.Pharmacies.AsNoTracking().FirstOrDefault(ph => ph.Name == pharmacy);
-                    if (drugz[0].DrugName == drugzpar.DrugName) {
-                        drugzpar.Amount += amount;
-                        context.DrugsOnParHands.Update(drugzpar);
+                using (var context = new PharmacyDataBaseContext())
+                {
+                    var drugz = context.DrugsOnSupHands
+                        .AsNoTracking()
+                        .Where(name => name.DrugName == drugs)
+                        .OrderBy(prior => prior)
+                        .ToList();
+
+                    var drugzpar = context.DrugsOnParHands
+                        .AsNoTracking()
+                        .FirstOrDefault(name => name.DrugName == drugs);
+
+                    var pharmacyid = context.Pharmacies
+                        .AsNoTracking()
+                        .FirstOrDefault(ph => ph.Name == pharmacy);
+
+                    if (pharmacyid == null)
+                    {
+                        Console.WriteLine("Аптека с указанным названием не найдена.");
+                        Console.WriteLine("Нажмите любую клавишу для продолжения...");
+                        Console.ReadKey();
+                        Console.Clear();
+
                     }
-                    else {
+
+                    if (drugz.Any() && drugz[0].DrugName == drugzpar?.DrugName)
+                    {
+                        if (drugzpar != null)
+                        {
+                            drugzpar.Amount += amount;
+                            context.DrugsOnParHands.Update(drugzpar);
+                        }
+                    }
+                    else
+                    {
                         var drug = new DrugsOnParHand
                         {
                             DrugName = drugs,
                             PharmacyId = pharmacyid.PharmacyId,
                             Price = price,
                             Filling = filling,
-                            BestBeforeDate = DateTime.Now.AddMonths(6).ToString(),
+                            BestBeforeDate = DateTime.Now.AddMonths(6).ToString("yyyy-MM-dd"),
                             Amount = amount
-
                         };
                         context.DrugsOnParHands.Add(drug);
                     }
-                    
+
                     context.SaveChanges();
                 }
-                Console.WriteLine("Нажмите любую клавишу для продолжения...");
-                Console.ReadKey();
-                Console.Clear();
-                break; 
+                break;
             }
         case "-":
             {
@@ -240,6 +264,41 @@ while (menu) {
                 Console.WriteLine("Нажмите любую клавишу для продолжения...");
                 Console.ReadKey();
                 Console.Clear();
+                break;
+            }
+        case "=": {
+                using (var context = new PharmacyDataBaseContext()) {
+                    var drugs = context.DrugsOnParHands.ToList();
+                    var drugsSup = context.DrugsOnSupHands.ToList();
+                    foreach (var drug in drugs) {
+                        if (drug.Amount >= 0) {
+                            continue;
+                        }
+                        var drugSup = drugsSup.FirstOrDefault(elem => elem.DrugName == drug.DrugName);
+                        if (drugSup.Amount > 10)
+                        {
+                            drug.Amount += 10;
+                            drugSup.Amount -= 10;
+                        }
+                        else if (drugSup.Amount < 10)
+                        {
+                            drug.Amount = drugSup.Amount;
+                            drugSup.Amount = 0;
+                        }
+                        else 
+                        {
+                            Console.WriteLine("Невозможно закупить товар! У поставщика закончились товары.");
+                        }
+                    }
+
+                    var toDelete = context.DrugsOnParHands.ToList();
+                    foreach (var element in toDelete) {
+                        if (DateTime.TryParse(element.BestBeforeDate, out DateTime bestBeforeDate) && bestBeforeDate < DateTime.Now) {
+                            context.DrugsOnParHands.Remove(element);
+                        }
+                    }
+                    context.SaveChanges();
+                }
                 break;
             }
         default: {
